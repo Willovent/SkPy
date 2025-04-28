@@ -63,13 +63,14 @@ class SkypeChat(SkypeObj):
             :class:`.SkypeMsg` list: collection of messages
         """
         url = "{0}/users/ME/conversations/{1}/messages".format(self.skype.conn.msgsHost, self.id)
-        params = {"startTime": 0,
+        params = {"startTime": getattr(self, "lastGetMessage", int((time.time()-60) * 1000)),
                   "view": "supportsExtendedHistory|msnp24Equivalent|supportsMessageProperties",
                   "pageSize": 30}
         headers = {"Sec-Fetch-Dest": "empty",
                    "Sec-Fetch-Mode": "cors",
                    "Sec-Fetch-Site": "cross-site"}
         resp = self.skype.conn.syncStateCall("GET", url, params, auth=COMBINED_AUTH, headers=headers).json()
+        self.lastGetMessage = int(time.time() * 1000)
         return [SkypeMsg.fromRaw(self.skype, json) for json in resp.get("messages", [])]
 
     def createRaw(self, msg):
