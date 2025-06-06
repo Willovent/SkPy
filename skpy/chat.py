@@ -6,6 +6,7 @@ from .core import SkypeObj, SkypeObjs, SkypeApiException
 from .util import SkypeUtils
 from .conn import SkypeConnection
 from .msg import SkypeMsg
+from PIL import Image
 
 
 COMBINED_AUTH = (SkypeConnection.Auth.Authenticate, SkypeConnection.Auth.RegToken)
@@ -218,27 +219,56 @@ class SkypeChat(SkypeObj):
             .SkypeFileMsg: copy of the sent message object
         """
         meta = {"type": "pish/image" if image else "sharing/file",
-                "permissions": dict(("8:{0}".format(id), ["read"]) for id in self.userIds)}
+                "permissions": dict(("8:{0}".format(id), ["read"]) for id in self.userIds), "sharingMode":"Inline"}
         if not image:
             meta["filename"] = name
-        objId = self.skype.conn("POST", "https://api.asm.skype.com/v1/objects",
+        objId = self.skype.conn("POST", "https://experimental-api.asm.skype.com/v1/objects/",
                                 auth=SkypeConnection.Auth.Authorize,
                                 headers={"X-Client-Version": "0/0.0.0.0"},
                                 json=meta).json()["id"]
         objType = "imgpsh" if image else "original"
-        urlFull = "https://api.asm.skype.com/v1/objects/{0}".format(objId)
+        urlFull = "https://experimental-api.asm.skype.com/v1/objects/{0}".format(objId)
         self.skype.conn("PUT", "{0}/content/{1}".format(urlFull, objType),
                         auth=SkypeConnection.Auth.Authorize, data=content.read())
+        # Get the size of the file
         size = content.tell()
         if image:
-            viewLink = SkypeMsg.link("https://api.asm.skype.com/s/i?{0}".format(objId))
-            body = SkypeMsg.uriObject("""{0}<meta type="photo" originalName="{1}"/>""".format(viewLink, name),
-                                      "Picture.1", urlFull, thumb="{0}/views/imgt1".format(urlFull), OriginalName=name)
+            width = height = None
+            try:
+                current_pos = content.tell()
+                content.seek(0)
+                img = Image.open(content)
+                width, height = img.size
+                content.seek(current_pos)
+            except ImportError:
+                pass
+            except Exception:
+                pass 
+            body = """
+                    <p>
+                    <img
+                        data-file-size="{4}"
+                        data-inline-image="true"
+                        data-loading-state="success"
+                        itemscope="png"
+                        itemtype="http://schema.skype.com/AMSImage"
+                        src="{0}/views/imgo"
+                        alt="image"
+                        aria-description="has context menu"
+                        height="{2}"
+                        witdh="{3}"
+                        id="{1}"
+                        itemid="{1}"
+                        href="{0}/views/imgo"
+                        target-src="{0}/views/imgo"
+                    />
+                    </p>
+                    """.format(urlFull, objId, height, width, size)
         else:
             viewLink = SkypeMsg.link("https://login.skype.com/login/sso?go=webclient.xmm&docid={0}".format(objId))
             body = SkypeMsg.uriObject(viewLink, "File.1", urlFull, "{0}/views/thumbnail".format(urlFull), name, name,
                                       OriginalName=name, FileSize=size)
-        msgType = "RichText/{0}".format("UriObject" if image else "Media_GenericFile")
+        msgType = "RichText/{0}".format("Html" if image else "Media_GenericFile")
         return self.sendRaw(content=body, messagetype=msgType)
 
     def sendContacts(self, *contacts):
