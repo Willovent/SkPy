@@ -6,7 +6,16 @@ An unofficial Python library for interacting with the Skype HTTP API.
 Here be dragons
 ---------------
 
-The upstream APIs used here are undocumented and are liable to change, which may cause parts of this library to fall apart in obvious or non-obvious ways.  You have been warned.
+This forked is kept alive only for the few methods i'm using. 
+They are : 
+    - chats.recent
+    - chat.getMsgs
+    - chat.sendMsg
+    - chat.sendFile
+
+Anything related to events is dead.
+
+The working branch is teams-migration
 
 Requirements
 ------------
