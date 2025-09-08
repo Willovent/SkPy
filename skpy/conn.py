@@ -145,6 +145,7 @@ class SkypeConnection(SkypeObj):
     API_CONTACTS = "https://contacts.skype.com/contacts/v2"
     API_MSGSHOST = "https://msgapi.teams.live.com/v1"
     API_DIRECTORY = "https://skypegraph.skype.com/v2.0/search/"
+    API_TEAMS = "https://teams.live.com/api/csa/api/v1/teams"
     # Version doesn't seem to be important, at least not for what we need.
     API_CONFIG = "https://a.config.skype.com/config/v1"
 
@@ -170,6 +171,7 @@ class SkypeConnection(SkypeObj):
         self.tokenFile = None
         self.hasUserPwd = False
         self.msgsHost = self.API_MSGSHOST
+        self.teamsHost = self.API_TEAMS
         self.sess = requests.Session()
         self.sess.headers["User-Agent"] = self.USER_AGENT
         self.endpoints = {"self": SkypeEndpoint(self, "SELF")}

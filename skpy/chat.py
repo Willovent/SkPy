@@ -36,7 +36,7 @@ class SkypeChat(SkypeObj):
     @classmethod
     def fromRaw(cls, skype=None, raw={}):
         id = raw.get("id")
-        if "threadProperties" in raw:
+        if raw.get('title') is not None or (id and "@thread" in id):
             active = True
             try:
                 info = skype.conn("GET", "{0}/threads/{1}".format(skype.conn.msgsHost, raw.get("id")),
@@ -218,10 +218,9 @@ class SkypeChat(SkypeObj):
         Returns:
             .SkypeFileMsg: copy of the sent message object
         """
-        meta = {"type": "pish/image" if image else "sharing/file",
+        meta = {"type": "pish/image" if image else "sharing/file", "filename": name,
                 "permissions": dict(("8:{0}".format(id), ["read"]) for id in self.userIds), "sharingMode":"Inline"}
-        if not image:
-            meta["filename"] = name
+
         objId = self.skype.conn("POST", "https://experimental-api.asm.skype.com/v1/objects/",
                                 auth=SkypeConnection.Auth.Authorize,
                                 headers={"X-Client-Version": "0/0.0.0.0"},
@@ -269,7 +268,7 @@ class SkypeChat(SkypeObj):
             body = SkypeMsg.uriObject(viewLink, "File.1", urlFull, "{0}/views/thumbnail".format(urlFull), name, name,
                                       OriginalName=name, FileSize=size)
         msgType = "RichText/{0}".format("Html" if image else "Media_GenericFile")
-        return self.sendRaw(content=body, messagetype=msgType)
+        return self.sendRaw(content=body, messagetype=msgType, properties = {"formatVariant": "TEAMS"})
 
     def sendContacts(self, *contacts):
         """
@@ -385,7 +384,7 @@ class SkypeGroupChat(SkypeChat):
             userIds.append(id)
             if obj.get("role") == "Admin":
                 adminIds.append(id)
-        fields.update({"topic": raw.get("threadProperties", {}).get("topic"),
+        fields.update({"topic": raw.get("title"),
                        "creatorId": SkypeUtils.noPrefix(props.get("creator")),
                        "userIds": userIds,
                        "adminIds": adminIds,
@@ -509,17 +508,18 @@ class SkypeChats(SkypeObjs):
         Returns:
             :class:`SkypeChat` dict: collection of recent conversations keyed by their ID
         """
-        url = "{0}/users/ME/conversations".format(self.skype.conn.msgsHost)
-        params = {"view": "supportsExtendedHistory|msnp24Equivalent", "pageSize": 100}
-        resp = self.skype.conn.syncStateCall("GET", url, params, auth=COMBINED_AUTH).json()
+        url = "{0}/users/me".format(self.skype.conn.teamsHost)
+        params = {'isPrefetch': 'false', 'enableMembershipSummary': 'true'}
+        headers = {"ms-ic3-additional-product": "Sfl", "ms-ic3-product": "tfl"}
+        resp = self.skype.conn("GET", url, auth=SkypeConnection.Auth.SkypeToken, params= params, headers = headers).json()
         chats = {}
-        for json in resp.get("conversations", []):
+        for json in resp.get("chats", []):
             chat = SkypeChat.fromRaw(self.skype, json)
             chats[chat.id] = self.merge(chat)
         return chats
 
     def chat(self, id):
-        """
+        """ 
         Get a single conversation by identifier.
 
         Args:
